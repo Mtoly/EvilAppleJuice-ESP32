@@ -28,9 +28,11 @@ uint32_t delayMilliseconds = 100;
 int currentMode = 0;
 Preferences preferences;
 
-#define RIGHT_LED 12
-#define LEFT_LED 13
-const int BOOT_BUTTON_PIN = 9;
+// This DevKit likely connects its D2 status LED to GPIO2.
+#define RIGHT_LED 2
+#define LEFT_LED 13  // Optional external status LED
+// The ESP32 DevKit BOOT button is connected to GPIO0.
+const int BOOT_BUTTON_PIN = 0;
 const unsigned long LONG_PRESS_TIME = 1000; // 1 seconds
 
 void setup() {
@@ -45,8 +47,7 @@ void setup() {
   Serial.printf("Current Mode: %d\n", currentMode);
   preferences.end();
 
-  // This is specific to the AirM2M ESP32 board
-  // https://wiki.luatos.com/chips/esp32c3/board.html
+  // ESP32 DevKit status LEDs and BOOT button
   pinMode(RIGHT_LED, OUTPUT);
   pinMode(LEFT_LED, OUTPUT);
   pinMode(BOOT_BUTTON_PIN, INPUT_PULLUP);
@@ -229,22 +230,13 @@ void loop() {
   // Start advertising
   pAdvertising->start();
 
+  const uint32_t flashOnMilliseconds = delayMilliseconds / 2;
+  delay(flashOnMilliseconds);
   digitalWrite(LEFT_LED,  shouldBeLitOff(stateTable[currentMode][0]) ? LOW : HIGH);
   digitalWrite(RIGHT_LED, shouldBeLitOff(stateTable[currentMode][1]) ? LOW : HIGH);
-  delay(delayMilliseconds); // delay for delayMilliseconds ms
+  delay(delayMilliseconds - flashOnMilliseconds);
   pAdvertising->stop();
 
-  // Random signal strength increases the difficulty of tracking the signal
-  int rand_val = random(100);  // Generate a random number between 0 and 99
-  if (rand_val < 70) {  // 70% probability
-      esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, MAX_TX_POWER);
-  } else if (rand_val < 85) {  // 15% probability
-      esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, (esp_power_level_t)(MAX_TX_POWER - 1));
-  } else if (rand_val < 95) {  // 10% probability
-      esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, (esp_power_level_t)(MAX_TX_POWER - 2));
-  } else if (rand_val < 99) {  // 4% probability
-      esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, (esp_power_level_t)(MAX_TX_POWER - 3));
-  } else {  // 1% probability
-      esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, (esp_power_level_t)(MAX_TX_POWER - 4));
-  }
+  // Keep advertising at the maximum power supported by the target.
+  esp_ble_tx_power_set(ESP_BLE_PWR_TYPE_ADV, MAX_TX_POWER);
 }
